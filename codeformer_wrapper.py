@@ -36,8 +36,8 @@ def get_face_helper(img_shape):
     Dynamically adjusts the face restoration helper parameters based on image resolution.
     """
     height, width = img_shape[:2]
-    upscale_factor = 2 if max(height, width) > 1024 else 4  # Higher resolution images upscale less
-    face_size = 1024 if max(height, width) > 1024 else 512
+    upscale_factor = 1 if max(height, width) > 1024 else 2
+    face_size = 1024 if max(height, width) > 2048 else 512
 
     return FaceRestoreHelper(
         upscale_factor=upscale_factor,
@@ -49,7 +49,24 @@ def get_face_helper(img_shape):
         device=device
     )
 
-def _enhance_img(img: np.ndarray, w: float = 0.9) -> np.ndarray:
+def enhance_face(face_img, w_values):
+    """
+    Enhances a single face using multiple passes with different `w` values.
+    """
+    face_tensor = img2tensor(face_img / 255., bgr2rgb=True, float32=True).to(device)
+    normalize(face_tensor, (0.5, 0.5, 0.5), (0.5, 0.5, 0.5), inplace=True)
+    face_tensor = face_tensor.unsqueeze(0)
+
+    restored_faces = []
+    for w in w_values:
+        with torch.no_grad():
+            output = net(face_tensor, w=w, adain=True)[0]
+            restored_faces.append(tensor2img(output, rgb2bgr=True, min_max=(-1, 1)))
+
+    # Average multiple passes for smoother results
+    return np.mean(restored_faces, axis=0).astype('uint8')
+
+def _enhance_img(img: np.ndarray, w_values=[0.7, 0.8, 0.9]) -> np.ndarray:
     """
     Internal helper to enhance a numpy image with CodeFormer.
     """
@@ -63,22 +80,24 @@ def _enhance_img(img: np.ndarray, w: float = 0.9) -> np.ndarray:
     face_helper.align_warp_face()
 
     for cropped_face in face_helper.cropped_faces:
-        cropped_face_t = img2tensor(cropped_face / 255., bgr2rgb=True, float32=True).to(device)
-        normalize(cropped_face_t, (0.5, 0.5, 0.5), (0.5, 0.5, 0.5), inplace=True)
-        cropped_face_t = cropped_face_t.unsqueeze(0)  # (1, 3, H, W), already on correct device
-
-        with torch.no_grad():
-            output = net(cropped_face_t, w=w, adain=True)[0]
-            restored_face = tensor2img(output, rgb2bgr=True, min_max=(-1, 1))
-
-        restored_face = cv2.bilateralFilter(restored_face.astype('uint8'), 9, 75, 75)  # Post-process
+        restored_face = enhance_face(cropped_face, w_values)
+        restored_face = cv2.bilateralFilter(restored_face, 9, 75, 75)  # Noise reduction
+        restored_face = cv2.addWeighted(restored_face, 1.5, restored_face, -0.5, 0)  # Sharpening
         face_helper.add_restored_face(restored_face)
 
     face_helper.get_inverse_affine(None)
     restored_img = face_helper.paste_faces_to_input_image()
+
+    # Global enhancements
+    restored_img = cv2.detailEnhance(restored_img, sigma_s=10, sigma_r=0.15)
+    restored_img = cv2.GaussianBlur(restored_img, (3, 3), 0)  # Smoother edges
+    lab = cv2.cvtColor(restored_img, cv2.COLOR_BGR2Lab)
+    lab[..., 0] = cv2.equalizeHist(lab[..., 0])  # Histogram equalization
+    restored_img = cv2.cvtColor(lab, cv2.COLOR_Lab2BGR)
+
     return restored_img
 
-def enhance_image(input_image_path: str, w: float = 0.9) -> str:
+def enhance_image(input_image_path: str, w_values=[0.7, 0.8, 0.9]) -> str:
     """
     Enhances an input image using CodeFormer and saves it with a '.enhanced.jpg' suffix.
     """
@@ -89,15 +108,15 @@ def enhance_image(input_image_path: str, w: float = 0.9) -> str:
     if img is None:
         raise ValueError(f"Cannot read image: {input_image_path}")
 
-    restored_img = _enhance_img(img, w=w)
+    restored_img = _enhance_img(img, w_values=w_values)
 
     os.makedirs(output_path.parent, exist_ok=True)
     cv2.imwrite(str(output_path), restored_img)
     print(f"Enhanced image saved to: {output_path}")
     return str(output_path)
 
-def enhance_image_memory(img: np.ndarray, w: float = 0.9) -> np.ndarray:
+def enhance_image_memory(img: np.ndarray, w_values=[0.7, 0.8, 0.9]) -> np.ndarray:
     """
     Enhances an input image entirely in memory and returns the enhanced image.
     """
-    return _enhance_img(img, w=w)
+    return _enhance_img(img, w_values=w_values)
