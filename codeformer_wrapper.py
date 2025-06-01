@@ -31,23 +31,32 @@ checkpoint = torch.load(ckpt_path, map_location=device)['params_ema']
 net.load_state_dict(checkpoint)
 net.eval()
 
-face_helper = FaceRestoreHelper(
-    upscale_factor=1,
-    face_size=512,
-    crop_ratio=(1, 1),
-    det_model='retinaface_resnet50',
-    save_ext='jpg',
-    use_parse=True,
-    device=device
-)
+def get_face_helper(img_shape):
+    """
+    Dynamically adjusts the face restoration helper parameters based on image resolution.
+    """
+    height, width = img_shape[:2]
+    upscale_factor = 2 if max(height, width) > 1024 else 4  # Higher resolution images upscale less
+    face_size = 1024 if max(height, width) > 1024 else 512
 
-def _enhance_img(img: np.ndarray, w: float = 0.5) -> np.ndarray:
+    return FaceRestoreHelper(
+        upscale_factor=upscale_factor,
+        face_size=face_size,
+        crop_ratio=(1, 1),
+        det_model='retinaface_resnet50',
+        save_ext='jpg',
+        use_parse=True,
+        device=device
+    )
+
+def _enhance_img(img: np.ndarray, w: float = 0.9) -> np.ndarray:
     """
     Internal helper to enhance a numpy image with CodeFormer.
     """
+    face_helper = get_face_helper(img.shape)
     face_helper.clean_all()
     face_helper.read_image(img)
-    num_faces = face_helper.get_face_landmarks_5(only_center_face=False, resize=640, eye_dist_threshold=5)
+    num_faces = face_helper.get_face_landmarks_5(only_center_face=False, resize=1280, eye_dist_threshold=2)
     if num_faces == 0:
         return img  # Return original if no faces detected
 
@@ -62,14 +71,14 @@ def _enhance_img(img: np.ndarray, w: float = 0.5) -> np.ndarray:
             output = net(cropped_face_t, w=w, adain=True)[0]
             restored_face = tensor2img(output, rgb2bgr=True, min_max=(-1, 1))
 
-        restored_face = restored_face.astype('uint8')
+        restored_face = cv2.bilateralFilter(restored_face.astype('uint8'), 9, 75, 75)  # Post-process
         face_helper.add_restored_face(restored_face)
 
     face_helper.get_inverse_affine(None)
     restored_img = face_helper.paste_faces_to_input_image()
     return restored_img
 
-def enhance_image(input_image_path: str, w: float = 0.5) -> str:
+def enhance_image(input_image_path: str, w: float = 0.9) -> str:
     """
     Enhances an input image using CodeFormer and saves it with a '.enhanced.jpg' suffix.
     """
@@ -87,7 +96,7 @@ def enhance_image(input_image_path: str, w: float = 0.5) -> str:
     print(f"Enhanced image saved to: {output_path}")
     return str(output_path)
 
-def enhance_image_memory(img: np.ndarray, w: float = 0.5) -> np.ndarray:
+def enhance_image_memory(img: np.ndarray, w: float = 0.9) -> np.ndarray:
     """
     Enhances an input image entirely in memory and returns the enhanced image.
     """
