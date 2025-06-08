@@ -1,25 +1,25 @@
-<img src="https://raw.githubusercontent.com/MechasAI/NeoRefacer/main/icon.png"/>
+<img src="https://raw.githubusercontent.com/MechasAI/Oggy/main/icon.png"/>
 
-# NeoRefacer: Images. GIFs. TIFFs. Full-length videos.
+# Oggy: Images. GIFs. TIFFs. Full-length videos.
 
-In a future where identity flows like data and reality is just another layer, NeoRefacer gives you the power to transform.
+In a future where identity flows like data and reality is just another layer, Oggy gives you the power to transform.
 
 Images. GIFs. TIFFs. Full-length videos.
 
 All yours to reface and reimagine - with a single pulse of electricity.
 
-Evolved from the foundations of the [Refacer](https://github.com/xaviviro/refacer) project, NeoRefacer is a next-generation, fully open-source refacer.
+Evolved from the foundations of the [Refacer](https://github.com/xaviviro/refacer) project, Oggy is a next-generation, fully open-source refacer.
 
-<img src="https://raw.githubusercontent.com/MechasAI/NeoRefacer/main/demo.jpg"/>
+<img src="https://raw.githubusercontent.com/MechasAI/Oggy/main/demo.jpg"/>
 
 1. Clone the repository.
 2. Spin up the environment.
 3. Launch the local interface.
 4. Control the face of tomorrow.
 
-[OFFICIAL WEBSITE](https://www.mechas.ai/projects-neorefacer.php)
+[OFFICIAL WEBSITE](https://www.mechas.ai/projects-oggy.php)
 
-## Core DNA of NeoRefacer
+## Core DNA of Oggy
 * **Instant Identity Shift** - Swap faces in images, GIFs, multi-page TIFFs and movies faster than your neural implants can blink.
 * **Overclocked Engine** - Optimized for CPU rebels and GPU warlords.
 * **Feature Film Reface** - Not just TikToks. Full two-hour cinematic overthrows.
@@ -54,13 +54,13 @@ Evolved from the foundations of the [Refacer](https://github.com/xaviviro/reface
 * Includes a bulk image refacer utility (refacer_bulk.py) 
 * Videos and images are saved to the root of /output, and GIFs are saved to /output/gifs and previews are saved to /output/preview subdirectory
 
-NeoRefacer, just like the original Refacer project, requires no training - just one photo and you're ready to go.
+Oggy, just like the original Refacer project, requires no training - just one photo and you're ready to go.
 
-:warning: Please, before using the code from this repository, make sure to read the [LICENSE](https://github.com/MechasAI/NeoRefacer/blob/main/LICENSE).
+:warning: Please, before using the code from this repository, make sure to read the [LICENSE](https://github.com/MechasAI/Oggy/blob/main/LICENSE).
 
 ## System Compatibility
 
-NeoRefacer has been tested on the following operating systems:
+Oggy has been tested on the following operating systems:
 
 | Operating System | CPU Support | GPU Support |
 | ---------------- | ----------- | ----------- |
@@ -72,7 +72,7 @@ The application is compatible with both CPU and GPU (Nvidia CUDA) environments, 
 
 ## Installation
 
-NeoRefacer has been tested and is known to work with Python 3.11.11, but it is likely to work with other Python versions as well. It is recommended to use a virtual environment, such as [Conda](https://www.anaconda.com/download), for setting up and running the project to avoid potential conflicts with other Python packages you may have installed.
+Oggy has been tested and is known to work with Python 3.11.11, but it is likely to work with other Python versions as well. It is recommended to use a virtual environment, such as [Conda](https://www.anaconda.com/download), for setting up and running the project to avoid potential conflicts with other Python packages you may have installed.
 
 On Windows, before continuing, ensure that you have the [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/) installed. They are required for installing dependencies. If you skip this step, you will likely encounter an error prompting you to install them.
 
@@ -88,19 +88,19 @@ Follow these steps to install Refacer and its dependencies:
     # Other systems: see a tutorial https://www.hostinger.com/tutorials/how-to-install-ffmpeg 
 
     # Clone the repository
-    git clone https://github.com/MechasAI/NeoRefacer.git
-    cd NeoRefacer
+    git clone https://github.com/MechasAI/Oggy.git
+    cd Oggy
     
     # Create the environment
     # Windows:
-    conda create -n neorefacer-env python=3.11 conda-forge::vs2015_runtime
+    conda create -n oggy-env python=3.11 conda-forge::vs2015_runtime
     # Linux:
-    conda create -n neorefacer-env python=3.11
+    conda create -n oggy-env python=3.11
     # MacOS:
-    conda create -n neorefacer-env python=3.11
+    conda create -n oggy-env python=3.11
     
     # Activate the environment
-    conda activate neorefacer-env
+    conda activate oggy-env
     
     # Instal the dependencies:
     # For CPU only (compatible with Windows, MacOSX, and Linux)
@@ -126,7 +126,7 @@ For more information on installing the CUDA necessary to use `onnxruntime-gpu`, 
 
 ## Usage
 
-Once you have successfully installed NeoRefacer and its dependencies, you can run the application using the following command:
+Once you have successfully installed Oggy and its dependencies, you can run the application using the following command:
 
 ```bash
 python app.py
@@ -158,20 +158,20 @@ python refacer_bulk.py --input_path ./input --dest_face myface.jpg
 
 ## Questions?
 
-If you have any questions or issues, feel free to [open an issue](https://github.com/MechasAI/NeoRefacer/issues/new).
+If you have any questions or issues, feel free to [open an issue](https://github.com/MechasAI/Oggy/issues/new).
 
 
 ## Third-Party Modules
 
 The `recognition` folder in this repository is derived from Insightface's GitHub repository. You can find the original source code here: [Insightface Recognition Source Code](https://github.com/deepinsight/insightface/tree/master/web-demos/src_recognition)
 
-This module is used for recognizing and handling face data within the NeoRefacer application. We are grateful to Insightface for their work and for making their code available.
+This module is used for recognizing and handling face data within the Oggy application. We are grateful to Insightface for their work and for making their code available.
 
 The image enhancing capability is based on [codeformer](https://github.com/felipedaragon/codeformer/) (by Shangchen Zhou) and [BasicSR](https://github.com/XPixelGroup/BasicSR). It also borrow some codes from [Unleashing Transformers](https://github.com/samb-t/unleashing-transformers), [YOLOv5-face](https://github.com/deepcam-cn/yolov5-face), and [FaceXLib](https://github.com/xinntao/facexlib). Thanks for their awesome works.
 
 ## License
 
-Note: This project uses a Custom MIT License, not allowing commercial use of the code unless you remove the image enhancing component. The output (refaced image or video) is not restricted by CC BY-NC-SA and may be used including for commercial purposes. See [LICENSE](https://github.com/MechasAI/NeoRefacer/blob/main/LICENSE) for full terms.
+Note: This project uses a Custom MIT License, not allowing commercial use of the code unless you remove the image enhancing component. The output (refaced image or video) is not restricted by CC BY-NC-SA and may be used including for commercial purposes. See [LICENSE](https://github.com/MechasAI/Oggy/blob/main/LICENSE) for full terms.
 
 The generated content (refaced images or videos) does not represent the views, beliefs, or attitudes of the authors of this Software. Please use the Software and its outputs responsibly, ethically, and with respect toward others.
 

@@ -22,7 +22,7 @@ import subprocess
 from PIL import Image
 import numpy as np
 import time
-from codeformer_wrapper import enhance_image, enhance_image_memory
+from codeformer_wrapper import enhance_image, enhance_image_memory # ensure enhance_image is removed if not used
 import tempfile
 
 gc = __import__('gc')
@@ -54,6 +54,7 @@ class Refacer:
         self.__check_encoders()
         self.__check_providers()
         self.total_mem = psutil.virtual_memory().total
+        self.codeformer_fidelity = 0.8 # Default CodeFormer fidelity
         self.__init_apps()
         
     def _partial_face_blend(self, original_frame, swapped_frame, face):
@@ -236,23 +237,25 @@ class Refacer:
 
     def process_first_face(self, frame):
         faces = self.__get_faces(frame, max_num=0)
-        if not faces:
-            return frame
+        if not faces: # If no faces detected, return original frame
+            return frame # No enhancement if no faces
     
-        if self.disable_similarity:
-            for face in faces:
+        if self.disable_similarity: #This implies first_face is true, or it's single face mode
+            for face in faces: # Should only be one if first_face logic is strict, but loop handles multiple if any
                 swapped = self.face_swapper.get(frame, face, self.replacement_faces[0][1], paste_back=True)
                 if hasattr(self, 'partial_reface_ratio') and self.partial_reface_ratio > 0.0:
                     self.blend_height_ratio = self.partial_reface_ratio
                     frame = self._partial_face_blend(frame, swapped, face)
                 else:
                     frame = swapped
+            # Apply enhancement after all face operations for this path
+            frame = enhance_image_memory(frame, codeformer_fidelity=self.codeformer_fidelity)
         return frame
 
     def process_faces(self, frame):
         faces = self.__get_faces(frame, max_num=0)
-        if not faces:
-            return frame
+        if not faces: # If no faces detected, return original frame
+            return frame # No enhancement if no faces
  
         faces = sorted(faces, key=lambda face: face.bbox[0])
  
@@ -266,7 +269,9 @@ class Refacer:
                     frame = self._partial_face_blend(frame, swapped, face)
                 else:
                     frame = swapped
-        elif self.disable_similarity:
+            # Apply enhancement after all face operations for this path
+            frame = enhance_image_memory(frame, codeformer_fidelity=self.codeformer_fidelity)
+        elif self.disable_similarity: # This implies it's not multiple_faces_mode but similarity is off (e.g. single face replace all)
             for face in faces:
                 swapped = self.face_swapper.get(frame, face, self.replacement_faces[0][1], paste_back=True)
                 if hasattr(self, 'partial_reface_ratio') and self.partial_reface_ratio > 0.0:
@@ -274,9 +279,12 @@ class Refacer:
                     frame = self._partial_face_blend(frame, swapped, face)
                 else:
                     frame = swapped
-        else:
+            # Apply enhancement after all face operations for this path
+            frame = enhance_image_memory(frame, codeformer_fidelity=self.codeformer_fidelity)
+        else: # Faces by match
+            processed_a_face = False
             for rep_face in self.replacement_faces:
-                for i in range(len(faces) - 1, -1, -1):
+                for i in range(len(faces) - 1, -1, -1): # Iterate backwards for safe deletion
                     sim = self.rec_app.compute_sim(rep_face[0], faces[i].embedding)
                     if sim >= rep_face[2]:
                         swapped = self.face_swapper.get(frame, faces[i], rep_face[1], paste_back=True)
@@ -285,15 +293,22 @@ class Refacer:
                             frame = self._partial_face_blend(frame, swapped, faces[i])
                         else:
                             frame = swapped
-                        del faces[i]
-                        break
+                        # Enhancement is applied here because we only want to enhance if a swap happened for this specific rep_face
+                        frame = enhance_image_memory(frame, codeformer_fidelity=self.codeformer_fidelity)
+                        processed_a_face = True
+                        del faces[i] # Avoid re-processing this face
+                        break # Move to next rep_face
+            # If no faces were processed by similarity but faces were detected, it implies no match.
+            # In this case, the original frame (potentially with no swaps) is returned without further enhancement here.
+            # If enhancement of non-swapped but detected faces is desired, it needs separate logic.
+            # However, if at least one face was swapped and enhanced, the frame variable holds that state.
         return frame
 
     def reface_group(self, faces, frames, output):
         with ThreadPoolExecutor(max_workers=self.use_num_cpus) as executor:
-            if self.first_face:
+            if self.first_face: # first_face is true if origin is None (single face mode, replace all)
                 results = list(tqdm(executor.map(self.process_first_face, frames), total=len(frames), desc="Processing frames"))
-            else:
+            else: # multiple_faces_mode or faces_by_match
                 results = list(tqdm(executor.map(self.process_faces, frames), total=len(frames), desc="Processing frames"))
             for result in results:
                 output.write(result)
@@ -305,7 +320,7 @@ class Refacer:
         if audio_stream is not None:
             self.video_has_audio = True
 
-    def reface(self, video_path, faces, preview=False, disable_similarity=False, multiple_faces_mode=False, partial_reface_ratio=0.0):
+    def reface(self, video_path, faces, preview=False, disable_similarity=False, multiple_faces_mode=False, partial_reface_ratio=0.0, codeformer_fidelity=0.8):
         original_name = osp.splitext(osp.basename(video_path))[0]
         timestamp = str(int(time.time()))
         filename = f"{original_name}_preview.mp4" if preview else f"{original_name}_{timestamp}.mp4"
@@ -322,6 +337,7 @@ class Refacer:
         self.prepare_faces(faces, disable_similarity=disable_similarity, multiple_faces_mode=multiple_faces_mode)
         self.first_face = False if multiple_faces_mode else (faces[0].get("origin") is None or disable_similarity)
         self.partial_reface_ratio = partial_reface_ratio
+        self.codeformer_fidelity = codeformer_fidelity # Set instance fidelity for video
     
         cap = cv2.VideoCapture(video_path, cv2.CAP_FFMPEG)
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -367,10 +383,6 @@ class Refacer:
             return converted_path, gif_output_path
     
         return converted_path, None
-    
-   
-  
-
 
     def __generate_gif(self, video_path, gif_output_path):
         os.makedirs(os.path.dirname(gif_output_path), exist_ok=True)
@@ -395,10 +407,11 @@ class Refacer:
         print(f"Refaced video saved at: {os.path.abspath(new_path)}")
         return new_path
 
-    def reface_image(self, image_path, faces, disable_similarity=False, multiple_faces_mode=False, partial_reface_ratio=0.0):
+    def reface_image(self, image_path, faces, disable_similarity=False, multiple_faces_mode=False, partial_reface_ratio=0.0, codeformer_fidelity=0.8):
          self.prepare_faces(faces, disable_similarity=disable_similarity, multiple_faces_mode=multiple_faces_mode)
          self.first_face = False if multiple_faces_mode else (faces[0].get("origin") is None or disable_similarity)
          self.partial_reface_ratio = partial_reface_ratio
+         self.codeformer_fidelity = codeformer_fidelity # Set instance fidelity for image
  
          ext = osp.splitext(image_path)[1].lower()
          os.makedirs("output", exist_ok=True)
@@ -423,8 +436,10 @@ class Refacer:
                  for page in range(page_count):
                      pil_img.seek(page)
                      bgr_image = cv2.cvtColor(np.array(pil_img.convert('RGB')), cv2.COLOR_RGB2BGR)
+                     # Process faces will apply enhancement via self.codeformer_fidelity
                      refaced_bgr = self.process_first_face(bgr_image.copy()) if self.first_face else self.process_faces(bgr_image.copy())
-                     enhanced_bgr = enhance_image_memory(refaced_bgr)
+                     # No separate enhancement call needed here as it's done in process_first_face/process_faces
+                     enhanced_bgr = refaced_bgr
                      enhanced_rgb = cv2.cvtColor(enhanced_bgr, cv2.COLOR_BGR2RGB)
                      enhanced_pil = Image.fromarray(enhanced_rgb)
                      frames.append(enhanced_pil)
@@ -435,21 +450,21 @@ class Refacer:
              print(f"Saved multipage refaced TIFF to {output_path}")
              return output_path
  
-         else:
+         else: # For non-TIFF images (jpg, png, etc.)
              bgr_image = cv2.imread(image_path)
              if bgr_image is None:
                  raise ValueError("Failed to read input image")
  
+             # Process faces will apply enhancement via self.codeformer_fidelity
              refaced_bgr = self.process_first_face(bgr_image.copy()) if self.first_face else self.process_faces(bgr_image.copy())
-             refaced_rgb = cv2.cvtColor(refaced_bgr, cv2.COLOR_BGR2RGB)
-             pil_img = Image.fromarray(refaced_rgb)
+             # No separate enhancement call needed here as it's done in process_first_face/process_faces
+             # Convert the already enhanced BGR image to PIL for saving
+             enhanced_pil_img = Image.fromarray(cv2.cvtColor(refaced_bgr, cv2.COLOR_BGR2RGB))
              filename = f"{original_name}_{timestamp}.jpg"
              output_path = os.path.join("output", filename)
-             pil_img.save(output_path, format='JPEG', quality=100, subsampling=0)
-             output_path = enhance_image(output_path)
+             enhanced_pil_img.save(output_path, format='JPEG', quality=100, subsampling=0)
              print(f"Saved refaced image to {output_path}")
              return output_path
-
 
     def extract_faces_from_image(self, image_path, max_faces=5):
         frame = cv2.imread(image_path)

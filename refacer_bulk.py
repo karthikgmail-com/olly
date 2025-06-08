@@ -26,7 +26,7 @@ def parse_args():
     return parser.parse_args()
 
 def main():
-    print("\033[94m" + pyfiglet.Figlet(font='slant').renderText("NeoRefacer") + "\033[0m")
+    print("\033[94m" + pyfiglet.Figlet(font='slant').renderText("Oggy") + "\033[0m")
     
     args = parse_args()
 
